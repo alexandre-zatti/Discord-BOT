@@ -26,4 +26,4 @@ async def rank(ctx):
     print(players_points)
 
 
-client.run('Nzk5Mzk1OTI2MTYxNDg5OTYw.YAC9eA.PMNAXbuxsp0D9IQAILhJEfQYQr8')
+client.run('')

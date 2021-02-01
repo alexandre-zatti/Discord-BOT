@@ -1,8 +1,9 @@
 import db as database
+import roleml
 from riotwatcher import LolWatcher, ApiError
 
 
-riotApi = LolWatcher('RGAPI-c1d2b59b-63a1-4588-966a-c014444ea72e')
+riotApi = LolWatcher('')
 
 region = 'br1'
 
@@ -25,10 +26,15 @@ async def get_accs_matches_info(players_matches):
         match_dto[player] = []
         for match in players_matches[player]:
             match_info = riotApi.match.by_id(region,match['gameId'])
+            match_timeline = riotApi.match.timeline_by_match(region,match['gameId'])
             match_champ_id = match['champion']
-            match_dto[player].append(await match_info_procesing(match_info, match_champ_id))
+            predict_positions = roleml.predict(match_info,match_timeline)
+            participant = await match_info_procesing(match_info, match_champ_id)
+            participant['position'] = predict_positions[participant['participantId']]
+            match_dto[player].append(participant)
 
     return match_dto
+
 
 
 async def match_info_procesing(match_info, match_champ_id):
@@ -36,81 +42,131 @@ async def match_info_procesing(match_info, match_champ_id):
         if participant['championId'] == match_champ_id:
             return participant
 
-
 async def point_processing(match_dto):
     players_points = {}
 
     for player in match_dto:
         players_points[player] = 0
         for match in match_dto[player]:
-            points = await statistic_calculation(match['timeline']['role'],match['timeline']['lane'],match)
+            points = await statistic_calculation(match)
             players_points[player]+= points
 
     return players_points
 
-async def statistic_calculation(role, lane, match):
-    
-    #lane = MIDDLE,NONE,TOP,JUNGLE,BOTTOM
-    #role = DUO_SUPPORT,SOLO,NONE,DUO_CARRY
-    #lane 0:adc/1:sup/2:mid/3:jng/4:top
-    
+async def statistic_calculation(match):
+       
     points = 0
-    teste = 5
-    tabela = []
-
-    tabela = [[5, 1, 5, 2, 3], [4, 2, 4, 2, 5], [4, 2, 4, 3, 3], [5, 2, 3, 5, 3], [-1, 3, -1, 3, 4], [5, 2, 5, 4, 4], [3, 5, 3, 4, 3], [5, 5, 5, 5, 5], [5, 1, 5, 1, 5], [1, 1, 1, 5, 1], [5, 1, 5, 3, 3], [-1, -4, -1, -3, -3], [2, 4, 2, 3, 3]]
+    multipliers = {}
     
-    if lane == 'TOP' and role == 'SOLO':
-        teste = 4
-
-    if lane == 'MIDDLE' and role == 'SOLO':
-
-        teste = 2
-
-    if lane == 'JUNGLE' and role == 'NONE':
-
-        teste = 3
-
-    if lane == 'BOTTOM' and role == 'DUO_CARRY':
-
-        teste = 0
-
-    if lane == 'BOTTOM' and role == 'DUO_SUPPORT':
+    if match['position'] == 'top':
         
-        teste = 1
-    
-    if lane == 5 :
+        multipliers = {
+            'totalDamageDealtToChampions' : 3,
+            'damageDealtToTurrets' : 5,
+            'damageDealtToObjectives' : 3,
+            'totalHeal' : 3,
+            'totalDamageTaken' : 2,
+            'goldEarned' : 4,
+            'visionScore' : 3,
+            'visionWardsBoughtInGame' : 5,
+            'totalMinionsKilled' : 5,
+            'neutralMinionsKilled' : 1,
+            'kills' : 3,
+            'deaths' : 2,
+            'assists' : 3,
+        }
+
+    elif match['position'] == 'mid':
+
+         multipliers = {
+            'totalDamageDealtToChampions' : 4,
+            'damageDealtToTurrets' : 4,
+            'damageDealtToObjectives' : 4,
+            'totalHeal' : 1,
+            'totalDamageTaken' : 5,
+            'goldEarned' : 5,
+            'visionScore' : 3,
+            'visionWardsBoughtInGame' : 5,
+            'totalMinionsKilled' : 5,
+            'neutralMinionsKilled' : 1,
+            'kills' : 5,
+            'deaths' : 4,
+            'assists' : 2,
+        }
+
+    elif match['position'] == 'jungle':
+
+         multipliers = {
+            'totalDamageDealtToChampions' : 3,
+            'damageDealtToTurrets' : 5,
+            'damageDealtToObjectives' : 3,
+            'totalHeal' : 3,
+            'totalDamageTaken' : 2,
+            'goldEarned' : 4,
+            'visionScore' : 3,
+            'visionWardsBoughtInGame' : 5,
+            'totalMinionsKilled' : 5,
+            'neutralMinionsKilled' : 4,
+            'kills' : 3,
+            'deaths' : 2,
+            'assists' : 3,
+        }
+
+    elif match['position'] == 'bot':
+
+         multipliers = {
+            'totalDamageDealtToChampions' : 4,
+            'damageDealtToTurrets' : 4,
+            'damageDealtToObjectives' : 4,
+            'totalHeal' : 1,
+            'totalDamageTaken' : 5,
+            'goldEarned' : 5,
+            'visionScore' : 3,
+            'visionWardsBoughtInGame' : 5,
+            'totalMinionsKilled' : 5,
+            'neutralMinionsKilled' : 1,
+            'kills' : 5,
+            'deaths' : 4,
+            'assists' : 2,
+        }
+
+    elif match['position'] == 'supp':
+        
+         multipliers = {
+            'totalDamageDealtToChampions' : 3,
+            'damageDealtToTurrets' : 5,
+            'damageDealtToObjectives' : 3,
+            'totalHeal' : 5,
+            'totalDamageTaken' : 2,
+            'goldEarned' : 5,
+            'visionScore' : 5,
+            'visionWardsBoughtInGame' : 5,
+            'totalMinionsKilled' : 5,
+            'neutralMinionsKilled' : 1,
+            'kills' : 4,
+            'deaths' : 3,
+            'assists' : 4,
+        }
+
+    else:
         return points
 
+    points += (match['stats']['totalDamageDealtToChampions'] / 1500)* multipliers['totalDamageDealtToChampions'] 
+    points += (match['stats']['damageDealtToTurrets']/ 1000) * multipliers['damageDealtToTurrets'] 
+    points += (match['stats']['damageDealtToObjectives']/ 1200) * multipliers['damageDealtToObjectives'] 
+    points += (match['stats']['totalHeal']/ 1000) * multipliers['totalHeal']
+    points -= (match['stats']['totalDamageTaken']/1600) * multipliers['totalDamageTaken'] 
+    points += (match['stats']['goldEarned']/ 700) * multipliers['goldEarned'] 
+    points += (match['stats']['visionScore']/ 2) * multipliers['visionScore'] 
+    points += match['stats']['visionWardsBoughtInGame'] * multipliers['visionWardsBoughtInGame'] 
+    points += (match['stats']['totalMinionsKilled']/ 10) * multipliers['totalMinionsKilled'] 
+    points += (match['stats']['neutralMinionsKilled']/ 6) * multipliers['neutralMinionsKilled'] 
+    points += match['stats']['kills'] * multipliers['kills'] 
+    points -= match['stats']['deaths'] * multipliers['deaths'] 
+    points += match['stats']['assists'] * multipliers['assists'] 
 
-    print('teste1 '+ tabela[0][teste])
-    print('teste2 '+ teste)
+    return round(points)
 
-    points += (match['stats']['totalDamageDealtToChampions'] / 1500)/ tabela[0][teste]
-    points += (match['stats']['damageDealtToTurrets']/ 1000) / tabela[1][teste]
-    points += (match['stats']['damageDealtToObjectives']/ 1200) / tabela[2][teste]
-    points += (match['stats']['totalHeal']/ 1000) /tabela[3][teste]
-    points += (match['stats']['totalDamageTaken']/1600)  / tabela[4][teste]
-    points += (match['stats']['goldEarned']/ 700) / tabela[5][teste]
-    points += (match['stats']['visionScore']/ 2) /  tabela[6][teste]
-    points += match['stats']['visionWardsBoughtInGame'] / tabela[7][teste]
-    points += (match['stats']['totalMinionsKilled']/ 10) / tabela[8][teste]
-    points += (match['stats']['neutralMinionsKilled']/ 6) / tabela[9][teste]
-    points += match['stats']['kills'] / tabela[10][teste]
-    points += match['stats']['deaths'] / tabela[11][teste]
-    points += (match['stats']['assists']/2) / tabela[12][teste]
-
-    return points
-    
-    # if match['stats']['win']:
-
-    #     points = 50000
-    #     return points
-    
-    # if match['stats']['win'] == False:
-
-    #     points = 10000
-    #     return points
 
 
 
