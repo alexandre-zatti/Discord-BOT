@@ -20,7 +20,7 @@ async def join(ctx,arg1,arg2):
 
 @client.command()
 async def rank(ctx):
-    
+    await rankCommand.say(ctx)
 
 
 client.run('Nzk5Mzk1OTI2MTYxNDg5OTYw.YAC9eA.xckf971SxLlJ6mQM6UJHXtQOpf0')
